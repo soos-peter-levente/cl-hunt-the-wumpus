@@ -2,9 +2,7 @@
 
 (defparameter *gs* nil)
 
-(defstruct (game-state
-             (:constructor make-game-state
-                           (&key (k 3) (n 20) (arrows 5) (pits 3) (bats 4))))
+(defstruct (game-state (:constructor make-game-state (k n arrows pits bats)))
   (n-of-tunnels k :type integer)
   (n-of-rooms n :type integer)
   (cave-hash-map nil)
@@ -62,7 +60,7 @@
   (setf (game-state-in-quiver *gs*) (n-of-arrows)))
 
 (defun roll-the-dice (above)
-  (> above (random 100)))
+  (< above (random 100)))
 
 (defun is-quiver-empty ()
   (= (arrows-remaining) 0))
@@ -109,29 +107,29 @@
           (t (collect-indifferent n below)))))
 
 ;;;; LEVEL SETUP, GAME LOOP & RUNTIME
-(defun start-game (&optional &key (k 3) (n 25) (arrows 5))
-  (main-game-loop k n arrows))
+(defun start-game (&optional &key (k 3) (n 20) (arrows 4) (pits 3) (bats 3))
+  (main-game-loop k n arrows pits bats))
 
 (defun generate-random-cave (k n)
   (setf (game-state-cave-hash-map *gs*)
         (graph->hash-table (make-random-graph k n))))
 
-(defun initialize-game-state (k n arrows &optional (same-cave nil))
+(defun initialize-game-state (k n arrows bats pits &optional (same-cave nil))
   (unless same-cave
-    (progn (setf *gs* (make-game-state :k k :n n :arrows arrows))
+    (progn (setf *gs* (make-game-state k n arrows bats pits))
            (generate-random-cave k n)))
   (reset-quiver)
   (randomly-set-wumpus-location)
   (randomly-set-player-location))
 
-(defun main-game-loop (k n arrows)
+(defun main-game-loop (k n arrows pits bats)
   (when (y-or-n-p (txt 'instruction-query))
     (txt 'instruction-welcome) (read-line))
   (loop :for first = t :then nil
      :for again = nil :then (y-or-n-p (txt 'play-again-query))
      :while (or first again)
      :do (initialize-game-state
-          k n arrows (unless first (y-or-n-p (txt 'same-cave-query))))
+          k n arrows bats pits (unless first (y-or-n-p (txt 'same-cave-query))))
      (in-game-loop)))
 
 (defun in-game-loop ()
@@ -177,9 +175,11 @@
             (game-over 'death-by-quiver-empty)))))
 
 (defun describe-player-location (room)
+  ;; Adjust zero indexing up 1 representationally. Player
+  ;; input is adjusted down 1 accordingly in `prompt-player`,
   ; (print *gs*) ; for debugging
   (let ((adjacent-rooms (get-adjacent-rooms room)))
-    (txt 'room-description room (arrows-remaining))
+    (txt 'room-description (1+ room) (arrows-remaining))
     (when (some #'is-pit-room adjacent-rooms)
       (txt 'hazard-pits-nearby))
     (when (some #'is-bat-room adjacent-rooms)
@@ -188,8 +188,8 @@
                   (get-adjacent-rooms room 2))
       (txt 'hazard-wumpus-nearby))
     (txt 'room-pathways
-         (butlast adjacent-rooms)
-         (car (last adjacent-rooms)))))
+         (mapcar #'1+ (butlast adjacent-rooms))
+         (1+ (car (last adjacent-rooms))))))
 
 (defun get-adjacent-rooms (room &optional n)
   (labels ((get-adjacent-for-this-room (in)
@@ -245,7 +245,7 @@
              (player-location))))
 
 ;;;; PROMPT
-(defun prompt-player ()
+(defun prompt-player () ; nag player until valid input is received.
   (loop for player-input = (%prompt (get-text 'player-prompt))
      do (destructuring-bind (move-type move-rest)
             (list (parse-move player-input)
@@ -256,7 +256,8 @@
                   (setf move-rest
                         (parse-directions (%prompt (get-text 'player-prompt-again)))))))
           (when (and move-type move-rest)
-            (return-from nil (list move-type move-rest))))))
+            ;; adjust direction indices down one.
+            (return-from nil (list move-type (mapcar #'1- move-rest)))))))
 
 (defun parse-move (input-string)
   (when (> (length input-string) 0)
@@ -264,7 +265,8 @@
       (when (member move-char '(#\m #\s)) move-char))))
 
 (defun parse-directions (input-string)
-  (remove-if-not #'(lambda (n) (and (numberp n) (= (abs n) n)))
+  ;; negative and zero (= -1 after index adjustment) values are pruned from input.
+  (remove-if-not #'(lambda (n) (and (numberp n) (/= 0 n) (= (abs n) n)))
     (mapcar #'(lambda (value) (parse-integer value :junk-allowed t))
             (loop for start = 0 then (1+ finish)
                for finish = (position #\space input-string :start start)

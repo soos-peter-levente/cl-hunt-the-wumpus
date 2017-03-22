@@ -14,5 +14,5 @@ Depends on cl-kreg for level generation.
 
 # todo
 
-- some events that are present in the `bsdgames` version are not present here. Extend.
-- fix room numbering.
+- some events that are present in the `bsdgames` version are not included. 
+- The 3 tunnels/25 rooms default cannot result in a regular graph (using 3/20). 
