@@ -15,4 +15,7 @@ Depends on cl-kreg for level generation.
 # todo
 
 - some events that are present in the `bsdgames` version are not included. 
-- The 3 tunnels/25 rooms default cannot result in a regular graph (using 3/20). 
+- The 3 tunnels/25 rooms default cannot result in a regular graph.
+  Either:
+  - add check to generate-random-cave and warn the player
+  - add different level generation methods
