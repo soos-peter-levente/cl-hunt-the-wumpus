@@ -79,7 +79,7 @@
 
 (defun select-random-room (below &optional (predicate #'identity))
   (loop for room = (random below)
-     while (not (funcall predicate room)) :finally (return room)))
+        while (not (funcall predicate room)) :finally (return room)))
 
 (defun randomly-set-wumpus-location ()
   (setf (game-state-wumpus-location *gs*) (select-random-room (n-of-rooms))))
@@ -126,18 +126,18 @@
   (when (y-or-n-p (txt 'instruction-query))
     (txt 'instruction-welcome) (read-line))
   (loop :for first = t :then nil
-     :for again = nil :then (y-or-n-p (txt 'play-again-query))
-     :while (or first again)
-     :do (initialize-game-state
-          k n arrows bats pits (unless first (y-or-n-p (txt 'same-cave-query))))
-     (in-game-loop)))
+        :for again = nil :then (y-or-n-p (txt 'play-again-query))
+        :while (or first again)
+        :do (initialize-game-state
+             k n arrows bats pits (unless first (y-or-n-p (txt 'same-cave-query))))
+            (in-game-loop)))
 
 (defun in-game-loop ()
   ;; Iteration will continue until `game-over?` returns t.
   (txt 'game-start-intro
        (n-of-rooms) (n-of-tunnels) (n-of-bats) (n-of-pits) (arrows-remaining))
   (loop :for game-over = nil :then (in-game-round) :while (not game-over) :do
-     (describe-player-location (player-location))))
+    (describe-player-location (player-location))))
 
 (defun in-game-round ()
   (game-over? (handle-player-input (prompt-player))))
@@ -177,7 +177,7 @@
 (defun describe-player-location (room)
   ;; Adjust zero indexing up 1 representationally. Player
   ;; input is adjusted down 1 accordingly in `prompt-player`,
-  ; (print *gs*) ; for debugging
+                                        ; (print *gs*) ; for debugging
   (let ((adjacent-rooms (get-adjacent-rooms room)))
     (txt 'room-description (1+ room) (arrows-remaining))
     (when (some #'is-pit-room adjacent-rooms)
@@ -247,17 +247,17 @@
 ;;;; PROMPT
 (defun prompt-player () ; nag player until valid input is received.
   (loop for player-input = (%prompt (get-text 'player-prompt))
-     do (destructuring-bind (move-type move-rest)
-            (list (parse-move player-input)
-                  (parse-directions player-input))
-          (when move-type
-           (unless move-rest
-             (loop until move-rest do
-                  (setf move-rest
-                        (parse-directions (%prompt (get-text 'player-prompt-again)))))))
-          (when (and move-type move-rest)
-            ;; adjust direction indices down one.
-            (return-from nil (list move-type (mapcar #'1- move-rest)))))))
+        do (destructuring-bind (move-type move-rest)
+               (list (parse-move player-input)
+                     (parse-directions player-input))
+             (when move-type
+               (unless move-rest
+                 (loop until move-rest do
+                   (setf move-rest
+                         (parse-directions (%prompt (get-text 'player-prompt-again)))))))
+             (when (and move-type move-rest)
+               ;; adjust direction indices down one.
+               (return-from nil (list move-type (mapcar #'1- move-rest)))))))
 
 (defun parse-move (input-string)
   (when (> (length input-string) 0)
@@ -266,12 +266,13 @@
 
 (defun parse-directions (input-string)
   ;; negative and zero (= -1 after index adjustment) values are pruned from input.
-  (remove-if-not #'(lambda (n) (and (numberp n) (/= 0 n) (= (abs n) n)))
-    (mapcar #'(lambda (value) (parse-integer value :junk-allowed t))
-            (loop for start = 0 then (1+ finish)
-               for finish = (position #\space input-string :start start)
-               collecting (subseq input-string start finish)
-               until (null finish)))))
+  (remove-if-not #'(lambda (n)
+                     (and (numberp n) (/= 0 n) (= (abs n) n)))
+                 (mapcar #'(lambda (value) (parse-integer value :junk-allowed t))
+                         (loop for start = 0 then (1+ finish)
+                               for finish = (position #\space input-string :start start)
+                               collecting (subseq input-string start finish)
+                               until (null finish)))))
 
 (defun %prompt (prompt-string)
   (format t prompt-string) (string-trim '(#\space) (read-line nil nil)))
