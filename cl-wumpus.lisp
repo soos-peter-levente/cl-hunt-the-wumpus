@@ -9,6 +9,7 @@
   (n-of-rooms n :type integer)
   (cave-hash-map nil)
   (n-of-arrows arrows :type integer)
+  (in-quiver arrows :type integer)
   (range-of-arrows 4 :type integer)
   (n-of-pits pits :type integer)
   (n-of-bats bats :type integer)
@@ -51,8 +52,14 @@
 (defun wumpus-location ()
   (game-state-wumpus-location *gs*))
 
-(defun arrows-remaining ()
+(defun n-of-arrows ()
   (game-state-n-of-arrows *gs*))
+
+(defun arrows-remaining ()
+  (game-state-in-quiver *gs*))
+
+(defun reset-quiver ()
+  (setf (game-state-in-quiver *gs*) (n-of-arrows)))
 
 (defun roll-the-dice (above)
   (> above (random 100)))
@@ -61,16 +68,13 @@
   (= (arrows-remaining) 0))
 
 (defun use-up-one-arrow ()
-  (decf (game-state-n-of-arrows *gs*)))
+  (decf (game-state-in-quiver *gs*)))
 
 (defun set-player-location (to)
   (setf (game-state-player-location *gs*) to))
 
 (defun set-wumpus-location (to)
   (setf (game-state-wumpus-location *gs*) to))
-
-(defun select-n-random-rooms (n below)
-  (loop repeat n collect (select-random-room below)))
 
 (defun is-hazardous-room (room)
   (or (is-pit-room room) (is-bat-room room) (is-wumpus-room room)))
@@ -91,7 +95,18 @@
 
 (defun move-wumpus-one-room ()
   (set-wumpus-location (randomly-select-adjacent-room (wumpus-location)))
-  (txt hazard-wumpus-wake))
+  (txt 'hazard-wumpus-wake))
+
+(defun select-n-random-rooms (n below &optional &key (no-same t))
+  (labels ((collect-different (n below acc)
+             (let ((this (select-random-room below)))
+               (cond ((= 0 n) acc)
+                     ((member this acc) (collect-different n below acc))
+                     (t (collect-different (decf n) below (cons this acc))))))
+           (collect-indifferent (n below)
+             (loop repeat n collect (select-random-room below))))
+    (cond (no-same (collect-different n below '()))
+          (t (collect-indifferent n below)))))
 
 ;;;; LEVEL SETUP, GAME LOOP & RUNTIME
 (defun start-game (&optional &key (k 3) (n 25) (arrows 5))
@@ -102,27 +117,26 @@
         (graph->hash-table (make-random-graph k n))))
 
 (defun initialize-game-state (k n arrows &optional (same-cave nil))
-  (let ((previous-map (if *gs* (cave-hash-map))))
-    (setf *gs* (make-game-state :k k :n n :arrows arrows))
-    (if same-cave
-        (setf (game-state-cave-hash-map *gs*) previous-map)
-        (generate-random-cave (n-of-tunnels) (n-of-rooms)))
-    (randomly-set-wumpus-location)
-    (randomly-set-player-location)))
+  (unless same-cave
+    (progn (setf *gs* (make-game-state :k k :n n :arrows arrows))
+           (generate-random-cave k n)))
+  (reset-quiver)
+  (randomly-set-wumpus-location)
+  (randomly-set-player-location))
 
 (defun main-game-loop (k n arrows)
-  (when (y-or-n-p (txt instruction-query))
-    (txt instruction-welcome) (read-line))
+  (when (y-or-n-p (txt 'instruction-query))
+    (txt 'instruction-welcome) (read-line))
   (loop :for first = t :then nil
-     :for again = nil :then (y-or-n-p (txt play-again-query))
+     :for again = nil :then (y-or-n-p (txt 'play-again-query))
      :while (or first again)
      :do (initialize-game-state
-          k n arrows (unless first (y-or-n-p (txt same-cave-query))))
+          k n arrows (unless first (y-or-n-p (txt 'same-cave-query))))
      (in-game-loop)))
 
 (defun in-game-loop ()
   ;; Iteration will continue until `game-over?` returns t.
-  (txt game-start-intro
+  (txt 'game-start-intro
        (n-of-rooms) (n-of-tunnels) (n-of-bats) (n-of-pits) (arrows-remaining))
   (loop :for game-over = nil :then (in-game-round) :while (not game-over) :do
      (describe-player-location (player-location))))
@@ -134,7 +148,7 @@
 (defun game-over (by)
   ;; The player is done for when this is called. It invariably returns t and
   ;; prints a game over message associated with the parameter passed to  it.
-  (get-text by) t)
+  (txt by) t)
 
 (defun game-over? (player-action-result)
   ;; a number in `player-action-value` is taken to mean that room-specific
@@ -146,11 +160,11 @@
       (cond ((is-wumpus-room #1#)
              (game-over 'death-by-wumpus))
             ((is-bat-room #1#)
-             (txt hazard-bats-carry)
+             (txt 'hazard-bats-carry)
              (game-over? (randomly-set-player-location)))
             ((is-pit-room #1#)
              (if (roll-the-dice 85)
-                 (txt death-by-pit-avoided)
+                 (txt 'death-by-pit-avoided)
                  (game-over 'death-by-pit)))
             (t nil))
       (if (eq (type-of #1#) 'symbol)
@@ -163,16 +177,17 @@
             (game-over 'death-by-quiver-empty)))))
 
 (defun describe-player-location (room)
+  ; (print *gs*) ; for debugging
   (let ((adjacent-rooms (get-adjacent-rooms room)))
-    (txt room-description room (arrows-remaining))
+    (txt 'room-description room (arrows-remaining))
     (when (some #'is-pit-room adjacent-rooms)
-      (txt hazard-pits-nearby))
+      (txt 'hazard-pits-nearby))
     (when (some #'is-bat-room adjacent-rooms)
-      (txt hazard-bats-nearby))
+      (txt 'hazard-bats-nearby))
     (when (member (wumpus-location)
                   (get-adjacent-rooms room 2))
-      (txt hazard-wumpus-nearby))
-    (txt room-pathways
+      (txt 'hazard-wumpus-nearby))
+    (txt 'room-pathways
          (butlast adjacent-rooms)
          (car (last adjacent-rooms)))))
 
@@ -224,7 +239,7 @@
 (defun move-player (to)
   (if (member to (get-adjacent-rooms (player-location)))
       (set-player-location to)
-      (progn (txt hazard-wall-bump)
+      (progn (txt 'hazard-wall-bump)
              (when (roll-the-dice 75)
                (move-wumpus-one-room))
              (player-location))))
@@ -235,10 +250,11 @@
      do (destructuring-bind (move-type move-rest)
             (list (parse-move player-input)
                   (parse-directions player-input))
-          (unless move-rest
-            (loop until move-rest do
-                 (setf move-rest
-                       (parse-directions (%prompt (get-text 'player-prompt-again))))))
+          (when move-type
+           (unless move-rest
+             (loop until move-rest do
+                  (setf move-rest
+                        (parse-directions (%prompt (get-text 'player-prompt-again)))))))
           (when (and move-type move-rest)
             (return-from nil (list move-type move-rest))))))
 
@@ -248,7 +264,7 @@
       (when (member move-char '(#\m #\s)) move-char))))
 
 (defun parse-directions (input-string)
-  (remove-if-not #'numberp
+  (remove-if-not #'(lambda (n) (and (numberp n) (= (abs n) n)))
     (mapcar #'(lambda (value) (parse-integer value :junk-allowed t))
             (loop for start = 0 then (1+ finish)
                for finish = (position #\space input-string :start start)
