@@ -107,8 +107,8 @@
           (t (collect-indifferent n below)))))
 
 ;;;; LEVEL SETUP, GAME LOOP & RUNTIME
-(defun start-game (&optional &key (k 3) (n 20) (arrows 4) (pits 3) (bats 3))
-  (main-game-loop k n arrows pits bats))
+(defun start-game (&optional &key (tunnels 3) (rooms 20) (arrows 4) (pits 3) (bats 3))
+  (main-game-loop tunnels rooms arrows pits bats))
 
 (defun generate-random-cave (k n)
   (setf (game-state-cave-hash-map *gs*)
