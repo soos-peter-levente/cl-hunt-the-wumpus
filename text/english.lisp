@@ -7,7 +7,7 @@
     (game-start-intro "~%You're in a cave with ~a rooms and ~a tunnels leading from each room.
 There are ~a bats and ~a pits scattered throughout the cave, and your
 quiver holds ~a custom super anti-evil Wumpus arrows.~%~%")
-    (room-description "~%You are in room ~a of the cave and have ~a arrow left.")
+    (room-description "~%You are in room ~a of the cave and have ~a arrows left.")
     (room-pathways "~&There are tunnels to rooms ~{~a~^, ~} and ~a")
     (player-prompt "~&Move or shoot? (m-s) ")
     (unrecognized-move "~&Unrecognized move.")
